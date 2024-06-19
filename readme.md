@@ -40,7 +40,7 @@ This package provides a ROS node for detecting the pose of a tracked object usin
 
 ## Configuration
 
-The behavior of the pose detector can be configured by modifying the parameters in the `pose_detector_node.py` file or by setting the corresponding ROS parameters.
+The behavior of the pose detector can be configured by modifying the parameters in the `config/pose_detector.yaml` file or by setting the corresponding ROS parameters.
 
 - `pose_detector/seed`: Random seed for reproducibility.
 - `pose_detector/mesh_file`: Path to the mesh file representing the tracked object.
