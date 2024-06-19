@@ -1,0 +1,13 @@
+ros:
+  camera_info_topic: "/camera/color/camera_info"
+  color_image_topic: "/camera/color/image_raw"
+  depth_image_topic: "/camera/aligned_depth_to_color/image_raw"
+  debug_image_topic: "/pose_detector/debug_image"
+  pose_topic: "/pose_detector/pose"
+
+pose_detector:
+  seed: 0
+  refresh_rate: 500  # Hz
+  mesh_file: "/home/arjun/Desktop/repo/allegro_ws/src/foundation_pose_ros/foundation_pose_ros/data/meshes/cube/cube.obj"
+  estimator_refine_iters: 5
+  tracker_refine_iters: 10

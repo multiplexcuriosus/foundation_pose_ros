@@ -1,0 +1,42 @@
+#
+# Wavefront material file
+# Converted by Meshlab Group
+#
+
+# Cube Material Definitions
+
+newmtl material_0
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+map_Kd ./textures/texture1.png
+
+newmtl material_1
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+map_Kd ./textures/texture2.png
+
+newmtl material_2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+map_Kd ./textures/texture3.png
+
+newmtl material_3
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+map_Kd ./textures/texture4.png
+
+newmtl material_4
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+map_Kd ./textures/texture5.png
+
+newmtl material_5
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+map_Kd ./textures/texture6.png
