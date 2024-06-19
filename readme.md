@@ -10,7 +10,7 @@ This package provides a ROS node for detecting the pose of a tracked object usin
 
     ```
     git clone git@github.com:leggedrobotics/FoundationPose.git
-    cd FoundationPose && git checkout `feature/realsense`
+    cd FoundationPose && git checkout feature/realsense
     pip install -e .
     ```
 3. Install Segment Anything.
