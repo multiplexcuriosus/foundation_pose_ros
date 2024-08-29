@@ -3,6 +3,7 @@
 import rospy
 import rospkg
 import os
+import torch
 
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
@@ -20,10 +21,9 @@ class SAMMaskPredictor:
         checkpoint = rospy.get_param("sam/checkpoint")
         if not os.path.isabs(checkpoint):
             checkpoint = os.path.join(rospkg.RosPack().get_path('foundation_pose_ros'), checkpoint)
-        model_type = rospy.get_param("sam/model_type")
+        self._checkpoint = checkpoint
+        self._model_type = rospy.get_param("sam/model_type")
         self._device = rospy.get_param("sam/device")
-        self._sam = sam_model_registry[model_type](checkpoint=checkpoint)
-        self._sam.to(device=self._device)
 
         self._bridge = CvBridge()
         self.service = rospy.Service("create_marker", CreateMask, self._handle_create_mask)
@@ -34,14 +34,18 @@ class SAMMaskPredictor:
     def cv2_to_ros(self, frame: np.ndarray):
         return self._bridge.cv2_to_imgmsg(frame, encoding="mono8")
 
+    @torch.no_grad()
     def _predict(self, image, input_points, input_labels):
-        predictor = SamPredictor(self._sam)
+        sam = sam_model_registry[self._model_type](checkpoint=self._checkpoint)
+        sam.to(device=self._device)
+        predictor = SamPredictor(sam)
         predictor.set_image(image)
         masks, scores, logits = predictor.predict(
             point_coords=input_points,
             point_labels=input_labels,
             multimask_output=True,
         )
+        del sam
         return masks, scores, logits
 
     def _handle_create_mask(self, req):

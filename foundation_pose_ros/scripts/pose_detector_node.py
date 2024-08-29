@@ -10,6 +10,7 @@ from foundation_pose_ros.srv import CreateMask
 import cv2
 import copy
 import numpy as np
+import torch
 import trimesh
 import nvdiffrast.torch as dr
 from threading import Lock
@@ -122,16 +123,18 @@ class PoseDetector:
         intrinsics_topic = rospy.get_param("camera_info_topic", "/camera/color/camera_info")
         try:
             data = rospy.wait_for_message(intrinsics_topic, CameraInfo, timeout=10.0)
-            K = np.array(data.K).reshape(3, 3)
+            K = np.array(data.K).reshape(3, 3).astype(np.float64)
             return K
         except rospy.ROSException:
             rospy.logwarn(f"[PoseDetectorNode]: Failed to get intrinsics from topic '{intrinsics_topic}', retrying...")
+            return self._get_intrinsics()
 
+    @torch.no_grad()
     def _detect_pose(self, color, depth):
         self._running = True
         if not self._initialized:
-            mask = self._get_mask(color)
             self._K = self._get_intrinsics()
+            mask = self._get_mask(color)
             pose = self._estimator.register(
                 K=self._K,
                 rgb=color,
