@@ -1,12 +1,12 @@
 <launch>
-    
     <rosparam command="load" file="$(find foundation_pose_ros)/config/pose_detector.yaml" />
     <rosparam command="load" file="$(find foundation_pose_ros)/config/create_mask.yaml" />
-    
-    <node pkg="foundation_pose_ros" type="pose_detector_node.py" name="pose_detector_node" output="screen"/>
+
+    <node pkg="foundation_pose_ros" type="pose_estimator.py" name="pose_detector_node" output="screen"/>
     <node pkg="foundation_pose_ros" type="create_mask_node.py" name="create_mask_node" output="screen"/>
 
-    <!-- RVIZ -->
+    <!-- RVIZ 
     <node name="rviz_pose_detection" pkg="rviz" type="rviz" args="-d $(find foundation_pose_ros)/config/rviz/pose_detection.rviz"/>
+    -->
 
 </launch>

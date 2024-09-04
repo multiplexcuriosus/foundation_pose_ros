@@ -17,7 +17,7 @@ from threading import Lock
 from scipy.spatial.transform import Rotation as R
 
 from foundation_pose.estimater import FoundationPose, PoseRefinePredictor, ScorePredictor
-from foundation_pose.Utils import set_logging_format, set_seed, draw_posed_3d_box, draw_xyz_axis
+from foundation_pose.utils import set_logging_format, set_seed, draw_posed_3d_box, draw_xyz_axis
 
 
 class PoseDetector:
@@ -31,13 +31,28 @@ class PoseDetector:
         # set_logging_format()
         self._debug = True
 
+        self.done = False
+       
+
+        # Resize
+        shorter_side = 480
+
+        self.H,self.W = (480,640) # HARDCODED!!!
+
+        if shorter_side is not None:
+            self.downscale = shorter_side/min(self.H, self.W)
+
+        self.H = int(self.H*self.downscale)
+        self.W = int(self.W*self.downscale)
+
+
         mesh_file = rospy.get_param("pose_detector/mesh_file")
         self._mesh, self._mesh_props = self._load_mesh(mesh_file)
 
         self._color_lock = Lock()
         self._depth_lock = Lock()
         self._initialized = False
-        self._running = False
+        #self._running = False
         self._has_color = False
         self._has_depth = False
         self._rate = rospy.Rate(rospy.get_param("pose_detector/refresh_rate"))
@@ -97,12 +112,14 @@ class PoseDetector:
         self._color_lock.acquire()
         self.color_frame_id = data.header.frame_id
         self.color = self.ros_to_cv2(data, desired_encoding="bgr8")
+        self.color = cv2.resize(self.color, (self.W,self.H), interpolation=cv2.INTER_NEAREST)
         self._has_color = True
         self._color_lock.release()
 
     def _depth_callback(self, data: Image):
         self._depth_lock.acquire()
         self.depth = self.ros_to_cv2(data, desired_encoding="passthrough").astype(np.uint16) / 1000.0
+        self.depth = cv2.resize(self.depth, (self.W,self.H), interpolation=cv2.INTER_NEAREST)
         self.depth[(self.depth < 0.1)] = 0
         self._has_depth = True
         self._depth_lock.release()
@@ -131,25 +148,17 @@ class PoseDetector:
 
     @torch.no_grad()
     def _detect_pose(self, color, depth):
-        self._running = True
-        if not self._initialized:
-            self._K = self._get_intrinsics()
-            mask = self._get_mask(color)
-            pose = self._estimator.register(
-                K=self._K,
-                rgb=color,
-                depth=depth,
-                ob_mask=mask,
-                iteration=self._est_refine_iter,
-            )
-            self._initialized = True
-        else:
-            pose = self._estimator.track_one(
-                rgb=color,
-                depth=depth,
-                K=self._K,
-                iteration=self._track_refine_iter
-            )
+        self._K = self._get_intrinsics()
+        self._K[:2] *= self.downscale # RESIZING
+        mask = self._get_mask(color)
+        rospy.loginfo("[PoseDetectorNode]: Computing Pose")
+        pose = self._estimator.register(
+            K=self._K,
+            rgb=color,
+            depth=depth,
+            ob_mask=mask,
+            iteration=self._est_refine_iter,
+        )
 
         pose_mat = pose.reshape(4, 4)
         pose_msg = PoseStamped()
@@ -164,10 +173,13 @@ class PoseDetector:
         pose_msg.pose.orientation.z = quat[2]
         pose_msg.pose.orientation.w = quat[3]
         self._pose_pub.publish(pose_msg)
+        rospy.loginfo("[PoseDetectorNode]: Pose message published")
+
+
 
         if self._debug:
             center_pose = pose @ np.linalg.inv(self._mesh_props["to_origin"])
-            pose_visualized = draw_posed_3d_box(self._K, img=color, ob_in_cam=center_pose, bbox=self._mesh_props["bbox"])
+            pose_visualized = draw_posed_3d_box(self._K, img=color, ob_in_cam=center_pose, bbox=bounding_box)
             pose_visualized = draw_xyz_axis(
                 color,
                 ob_in_cam=center_pose,
@@ -180,11 +192,13 @@ class PoseDetector:
             pose_visualized_msg = self.cv2_to_ros(pose_visualized)
             pose_visualized_msg.header.stamp = pose_msg.header.stamp
             self._debug_pub.publish(pose_visualized_msg)
-        self._running = False
+            rospy.loginfo("[PoseDetectorNode]:Visualization image published")
+       
+        self.done = True
 
     def _run_detector(self):
 
-        if self._running or not self._has_color or not self._has_depth:
+        if self.done or not self._has_color or not self._has_depth:
             return
 
         self._color_lock.acquire()
@@ -203,6 +217,10 @@ class PoseDetector:
         while not rospy.is_shutdown():
             self._run_detector()
             self._rate.sleep()
+
+            if self.done:
+                rospy.signal_shutdown("[PoseDetectorNode]: Done -> Shutting down")
+
 
 
 if __name__ == "__main__":
