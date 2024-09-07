@@ -1,0 +1,7 @@
+# Request constants
+sensor_msgs/Image color_frame
+sensor_msgs/Image depth_frame
+---
+# Response constants
+geometry_msgs/PoseStamped T_ce 
+sensor_msgs/Image mask  

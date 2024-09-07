@@ -5,7 +5,8 @@ from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import CameraInfo, Image
 from std_srvs.srv import SetBool
-from foundation_pose_ros.srv import CreateMask
+from foundation_pose_ros.srv._CreateMask import CreateMask,CreateMaskRequest
+from foundation_pose_ros.srv._ShelfPose import ShelfPose,ShelfPoseResponse
 
 import cv2
 import copy
@@ -67,11 +68,13 @@ class PoseDetector:
         depth_topic = rospy.get_param("ros/depth_image_topic")
         debug_topic = rospy.get_param("ros/debug_image_topic", "/pose_detector/debug/image")
         pose_topic = rospy.get_param("ros/pose_topic", "/pose_detector/pose")
+        mask_debug_image_topic = rospy.get_param("ros/mask_debug_image_topic")
 
         self._bridge = CvBridge()
         self._img_sub = rospy.Subscriber(color_topic, Image, self._color_callback)
         self._depth_sub = rospy.Subscriber(depth_topic, Image, self._depth_callback)
         self._pose_pub = rospy.Publisher(pose_topic, PoseStamped, queue_size=1)
+        self._mask_debug_pub = rospy.Publisher(mask_debug_image_topic, Image, queue_size=1)
         self._mask_pub = rospy.Publisher("fp_mask", Image, queue_size=1)
         self._debug_pub = rospy.Publisher(debug_topic, Image, queue_size=1)
         self._debug_srv = rospy.Service("~debug_pose", SetBool, self._debug_callback)
@@ -116,9 +119,19 @@ class PoseDetector:
     def _get_mask(self, color):
         try:
             rospy.wait_for_service("create_marker", timeout=10)
+            mask_request = CreateMaskRequest()
+            mask_request.data = self.cv2_to_ros(color)
             service_proxy = rospy.ServiceProxy("create_marker", CreateMask)
-            data = service_proxy(self.cv2_to_ros(color))
-            mask = self.ros_to_cv2(data.mask, desired_encoding="passthrough").astype(np.uint8).astype(bool)
+            mask_response = service_proxy(mask_request)
+            mask_msg = mask_response.mask
+            self._mask_debug_pub.publish(mask_msg)
+
+            mask = self.ros_to_cv2(mask_msg, desired_encoding="passthrough").astype(np.uint8).astype(bool)
+            # Jaú custom spice-up ==>
+            self.final_mask = mask.astype(np.uint8) * 255
+            print("gotten mask shape: "+str(mask.shape))
+
+            # Jaú custom spice-up <== 
             return mask
         except rospy.ROSException:
             rospy.logerr("[PoseDetectorNode]: Could not find service 'create_marker', Exiting!")
@@ -152,36 +165,80 @@ class PoseDetector:
         pose_msg.pose.orientation.w = quat[3]
         return pose_msg
 
-    def compute_grasp_poses(self,T_eg,T_cg,T_bc,T_ec):
+    def compute_grasp_pose(self,T_em,T_bc,T_ec):
         T_cb = np.linalg.inv(T_bc)
         T_eb = T_ec @ T_cb
-        T_bg = T_bc @ T_cg
+        print("T_eb: "+str(T_eb))
 
-        G_E = T_eg[:,3]
-        B_E = T_eb[:,3]
+        M_E = T_em[0:3,3]
+        B_E = T_eb[0:3,3]
+        BM_r_E = M_E - B_E
+        BM_r_E_unit = BM_r_E / np.linalg.norm(BM_r_E)
 
-        gamma_E = np.array([B_E[0],B_E[1],G_E[2],1.0]) # point on height of grasp positions below frame (used to make grasp tf orthonormal)
-        gammaG_r_E = G_E - gamma_E
-        gammaG_r_E_norm = gammaG_r_E / np.linalg.norm(gammaG_r_E)
-        normal_to_gammaG_in_gx_gy_plane = np.array([-gammaG_r_E_norm[1],gammaG_r_E_norm[0],0])
+        gamma_E = np.array([B_E[0],B_E[1],M_E[2]]) # point on height of grasp positions below frame (used to make grasp tf orthonormal)
+        gammaM_r_E = M_E - gamma_E
+        gammaM_r_E_unit = gammaM_r_E / np.linalg.norm(gammaM_r_E)
+        normal_to_gammaG_in_ez_plane_E = np.array([-gammaM_r_E_unit[1],gammaM_r_E_unit[0],0])
         
-        BG_r_B = T_bg[:,3]
-        BG_r_C = T_cb @ BG_r_B
-        BG_r_C_norm = BG_r_C[0:3] / np.linalg.norm(BG_r_C[0:3])
+        G_zaxis_E = BM_r_E_unit
+        G_yaxis_E = normal_to_gammaG_in_ez_plane_E
+        G_xaxis_E = np.cross(G_zaxis_E,G_yaxis_E)
 
-        grasp_x = normal_to_gammaG_in_gx_gy_plane
-        grasp_y = BG_r_C_norm
-        grasp_z = np.cross(grasp_x,grasp_y)
-        grasp_rot = np.array([grasp_x,grasp_y,grasp_z])
+        R_eg = np.array([G_xaxis_E,G_yaxis_E,G_zaxis_E])
 
-        grasp_tf_C = np.zeros((4,4))
-        grasp_tf_C[0:3,0:3] = grasp_rot
-        grasp_tf_C[:,3] = BG_r_C
-        grasp_tf_C[3,3] = 1
+        T_eg = np.zeros((4,4))
+        T_eg[0:3,0:3] = R_eg
+        T_eg[0:3,3] = M_E
+        T_eg[3,3] = 1
 
-        return grasp_tf_C
+        return T_eg
 
-    def get_grasp_and_drop_off_poses(self,T_cs):
+
+
+    def get_drop_off_poses(self,T_cs):
+
+        # Get shelf corners in C frame
+        bounding_box =self._mesh_props["bbox"]
+        corners_S = get_box_corners(bounding_box)
+        corners_C = []
+        for p_S in corners_S:
+            p_C =(T_cs @ p_S)[0:3]
+            corners_C.append(p_C)
+        
+        # Get transform from C-frame to E-frame
+        T_ce = get_T_ce(corners_C)
+        
+        #Create drop off pose DO0,DO1 ->TODO: drop off position bottom part of bottle or com?
+        shelf_depth = self._extents[0]
+        shelf_height = self._extents[1] # TODO: CHECK IF STILL TRUE FOR SMALLER KALLAX !! 
+        shelf_width = self._extents[2] # TODO: CHECK IF STILL TRUE FOR SMALLER KALLAX !! 
+        
+        # Create rotation matrix from C frame to standard frame used in alma simulator (?)
+        R_es = np.array([[0,0,1],
+                         [0,-1,0],
+                         [1,0,0]])
+
+        R_ce = T_ce[0:3,0:3]
+        R_do = R_ce @ R_es
+
+
+        DO0_E = np.array([shelf_depth/2,shelf_width*0.75,shelf_height,1.0])
+        DO1_E = np.array([shelf_depth/2,shelf_width*0.25,shelf_height,1.0])
+        
+        T_cdo0 = np.zeros((4,4))
+        T_cdo0[0:3,0:3] = R_do
+        T_cdo0[:,3] = T_ce @ DO0_E
+        T_cdo0[3,3] = 1
+    
+        T_cdo1 = np.zeros((4,4))
+        T_cdo1[0:3,0:3] = R_do
+        T_cdo1[:,3] = T_ce @ DO1_E
+        T_cdo1[3,3] = 1
+
+        return T_cdo0,T_cdo1
+    
+
+    def get_grasp_poses(self,T_cs):
 
         # Get shelf corners in C frame
         bounding_box =self._mesh_props["bbox"]
@@ -201,75 +258,65 @@ class PoseDetector:
         EP2_r_E = np.array([0.035,0.280,0.042,1.0])
         EP3_r_E = np.array([0.035,0.130,0.042,1.0])
         z_off = np.array([0,0,0.03,0.0])
-        EG0_r_E = EP0_r_E + z_off
-        EG1_r_E = EP1_r_E + z_off
-        EG2_r_E = EP2_r_E + z_off
-        EG3_r_E = EP3_r_E + z_off
+        EM0_r_E = EP0_r_E + z_off
+        EM1_r_E = EP1_r_E + z_off
+        EM2_r_E = EP2_r_E + z_off
+        EM3_r_E = EP3_r_E + z_off
 
         T_cb = np.array([[1,0,0,0], # fake base transform --> TODO Get from tf pub?
-                        [0,1,0,0.6],
-                        [0,0,1,0.6],
+                        [0,1,0,0.5],
+                        [0,0,1,0.5],
                         [0,0,0,1]])
         T_bc = np.linalg.inv(T_cb)
         
-        # Construct transforms from E t0 g0,g1,g2,g3 (grasp poses)
-        T_eg0 = np.zeros((4,4))
-        T_eg0[0:3,0:3] = np.identity(3)
-        T_eg0[0:4,3] = EG0_r_E
-        T_eg0[3,3] = 1
+        # Construct transforms from E t0 m0,m1,m2,m3 (bottles middle points))
+        T_em0 = np.zeros((4,4))
+        T_em0[0:3,0:3] = np.identity(3)
+        T_em0[0:4,3] = EM0_r_E
+        T_em0[3,3] = 1
         
-        T_eg1 = np.zeros((4,4))
-        T_eg1[0:3,0:3] = np.identity(3)
-        T_eg1[0:4,3] = EG1_r_E
-        T_eg1[3,3] = 1
+        T_em1 = np.zeros((4,4))
+        T_em1[0:3,0:3] = np.identity(3)
+        T_em1[0:4,3] = EM1_r_E
+        T_em1[3,3] = 1
 
-        T_eg2 = np.zeros((4,4))
-        T_eg2[0:3,0:3] = np.identity(3)
-        T_eg2[0:4,3] = EG2_r_E
-        T_eg2[3,3] = 1
+        T_em2 = np.zeros((4,4))
+        T_em2[0:3,0:3] = np.identity(3)
+        T_em2[0:4,3] = EM2_r_E
+        T_em2[3,3] = 1
 
-        T_eg3 = np.zeros((4,4))
-        T_eg3[0:3,0:3] = np.identity(3)
-        T_eg3[0:4,3] = EG3_r_E
-        T_eg3[3,3] = 1
-
-        # Construct transforms from C to GRASP_i
-        T_cg0 = T_ce @ T_eg0
-        T_cg1 = T_ce @ T_eg1
-        T_cg2 = T_ce @ T_eg2
-        T_cg3 = T_ce @ T_eg3
+        T_em3 = np.zeros((4,4))
+        T_em3[0:3,0:3] = np.identity(3)
+        T_em3[0:4,3] = EM3_r_E
+        T_em3[3,3] = 1
         
         # Construct pick up grasp poses
-        T_cg0 = self.compute_grasp_poses(T_eg0,T_cg0,T_bc,T_ec)
-        T_cg1 = self.compute_grasp_poses(T_eg1,T_cg1,T_bc,T_ec)
-        T_cg2 = self.compute_grasp_poses(T_eg2,T_cg2,T_bc,T_ec)
-        T_cg3 = self.compute_grasp_poses(T_eg3,T_cg3,T_bc,T_ec)
+        T_eg0 = T_em0
+        T_eg1 = T_em1
+        T_eg2 = T_em2
+        T_eg3 = T_em3
+        '''
+        T_eg0 = self.compute_grasp_pose(T_em0,T_bc,T_ec)
+        T_eg1 = self.compute_grasp_pose(T_em1,T_bc,T_ec)
+        T_eg2 = self.compute_grasp_pose(T_em2,T_bc,T_ec)
+        T_eg3 = self.compute_grasp_pose(T_em3,T_bc,T_ec)
+        '''
 
-        # Create drop off pose DO0,DO1 ->TODO: drop off position bottom part of bottle or com?
-        shelf_depth = self._extents[0]
-        shelf_height = self._extents[1] # TODO: CHECK IF STILL TRUE FOR SMALLER KALLAX !! 
-        shelf_width = self._extents[2] # TODO: CHECK IF STILL TRUE FOR SMALLER KALLAX !! 
-        
-        DO0_E = np.array([shelf_depth/2,shelf_width*0.75,shelf_height,1.0])
-        EDO0_rot = np.identity(3)
-        CDO0_rot = T_ce[0:3,0:3] @ EDO0_rot
-        T_cdo0 = np.zeros((4,4))
-        T_cdo0[0:3,0:3] = CDO0_rot
-        T_cdo0[:,3] = T_ce @ DO0_E
-        T_cdo0[3,3] = 1
+        # Construct transforms from C to GRASP_i
+        T_gsim = np.array([[0,0,1,0],
+                           [0,-1,0,0],
+                           [1,0,1,0],
+                           [0,0,0,1]])
 
-        DO1_E = np.array([shelf_depth/2,shelf_width*0.25,shelf_height,1.0])
-        EDO1_rot = np.identity(3)
-        CDO1_rot = T_ce[0:3,0:3] @ EDO1_rot
-        T_cdo1 = np.zeros((4,4))
-        T_cdo1[0:3,0:3] = CDO1_rot
-        T_cdo1[:,3] = T_ce @ DO1_E
-        T_cdo1[3,3] = 1
+        T_sim = T_ce @ T_eg0 @ T_gsim
+        T_cg1 = T_ce @ T_eg1 @ T_gsim
+        T_cg2 = T_ce @ T_eg2 @ T_gsim
+        T_cg3 = T_ce @ T_eg3 @ T_gsim
 
-        return T_cg0,T_cg1,T_cg2,T_cg3,T_cdo0,T_cdo1
+        return T_sim,T_cg1,T_cg2,T_cg3
 
 
-    def _detect_pose(self, color, depth):
+    def _detect_pose(self, color, depth):   
         self._running = True
         if not self._initialized:
             self._K = self._get_intrinsics()
@@ -284,19 +331,26 @@ class PoseDetector:
 
         # Compute other important transforms
         T_sa = self._mesh_props["to_origin"]
+        
+        
         T_cs = T_ca @ np.linalg.inv(T_sa)
 
         # Get all poses
-        T_cg0,T_cg1,T_cg2,T_cg3,T_cdo0,T_cdo1 = self.get_grasp_and_drop_off_poses(T_cs)
+        #T_cg0,T_cg1,T_cg2,T_cg3,T_cdo0,T_cdo1 = self.get_grasp_and_drop_off_poses(T_cs)
+
+        T_cdo0,T_cdo1 = self.get_drop_off_poses(T_cs)
+        T_cg0,T_cg1,T_cg2,T_cg3, = self.get_grasp_poses(T_cs)
 
         # Create pose msgs
+
         T_cg0_msg = self.create_pose_msg(T_cg0)
         T_cg1_msg = self.create_pose_msg(T_cg1)
         T_cg2_msg = self.create_pose_msg(T_cg2)
         T_cg3_msg = self.create_pose_msg(T_cg3)
+        
         T_cdo0_msg = self.create_pose_msg(T_cdo0)
         T_cdo1_msg = self.create_pose_msg(T_cdo1)
-
+        
         # Publish pose msgs
         self._pose_pub.publish(T_ca_msg)
 

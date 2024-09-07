@@ -2,11 +2,12 @@ ros:
   camera_info_topic: "/camera/color/camera_info"
   color_image_topic: "/camera/color/image_raw"
   depth_image_topic: "/camera/aligned_depth_to_color/image_raw"
-  debug_image_topic: "/pose_detector/debug_image"
+  pose_debug_image_topic: "/pose_detector/pose_debug_image"
+  mask_debug_image_topic: "/pose_detector/mask_debug_image"
   pose_topic: "/pose_detector/pose"
 
 pose_detector:
-  seed: 0
+  seed: 0  
   refresh_rate: 20  # Hz
   mesh_file: "/home/jau/ros/catkin_ws/src/foundation_pose_ros/data/meshes/cube/kallax_with_backplate_meters.obj"
   estimator_refine_iters: 10

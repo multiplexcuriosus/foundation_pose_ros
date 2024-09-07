@@ -67,16 +67,8 @@ class SAMMaskPredictor:
             return None
         best_mask = masks[best_mask_idx].astype(np.uint8) * 255
 
-        # Remove holes
-        best_mask_bgr = cv2.cvtColor(best_mask,cv2.COLOR_GRAY2BGR)
-        contours, hier = cv2.findContours(best_mask,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
-        cntsSorted = sorted(contours, key=lambda x: -cv2.contourArea(x))
-        c0 = cntsSorted[0] # largest contour
-        cv2.drawContours(best_mask_bgr,[c0],0,(0,255,0),-1)
-        mask_hsv = cv2.cvtColor(best_mask_bgr, cv2.COLOR_BGR2HSV)
-        best_mask_no_holes =  cv2.inRange(mask_hsv,np.array([50,0,0]),np.array([70,255,255]))
-
-        img_msg = self.cv2_to_ros(best_mask_no_holes)
+ 
+        img_msg = self.cv2_to_ros(best_mask)
 
         return CreateMaskResponse(mask=img_msg)
 

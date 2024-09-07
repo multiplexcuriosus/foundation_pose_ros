@@ -5,7 +5,11 @@ from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import CameraInfo, Image
 from std_srvs.srv import SetBool
-from foundation_pose_ros.srv import CreateMask
+#
+# from foundation_pose_ros.srv import CreateMask
+
+from foundation_pose_ros.srv._CreateMask import CreateMask,CreateMaskRequest
+from foundation_pose_ros.srv._ShelfPose import ShelfPose,ShelfPoseResponse
 
 import cv2
 import copy
@@ -19,6 +23,7 @@ from scipy.spatial.transform import Rotation as R
 from foundation_pose.estimater import FoundationPose, PoseRefinePredictor, ScorePredictor
 from foundation_pose.utils import set_logging_format, set_seed, draw_posed_3d_box, draw_xyz_axis
 
+from coordinate_frame_converter import CoordinateFrameConverter
 
 class PoseDetector:
     """
@@ -31,28 +36,13 @@ class PoseDetector:
         # set_logging_format()
         self._debug = True
 
-        self.done = False
-       
-
-        # Resize
-        shorter_side = 480
-
-        self.H,self.W = (480,640) # HARDCODED!!!
-
-        if shorter_side is not None:
-            self.downscale = shorter_side/min(self.H, self.W)
-
-        self.H = int(self.H*self.downscale)
-        self.W = int(self.W*self.downscale)
-
-
         mesh_file = rospy.get_param("pose_detector/mesh_file")
         self._mesh, self._mesh_props = self._load_mesh(mesh_file)
 
         self._color_lock = Lock()
         self._depth_lock = Lock()
         self._initialized = False
-        #self._running = False
+        self._running = False
         self._has_color = False
         self._has_depth = False
         self._rate = rospy.Rate(rospy.get_param("pose_detector/refresh_rate"))
@@ -72,20 +62,77 @@ class PoseDetector:
             glctx=glctx,
         )
 
+        '''
+        # Free up memory
+        del sam
+        gc.collect()
+        torch.cuda.empty_cache()'''
+
+
+        # Jaú custom spice-up ==>
+        self.final_mask = None
+        self.service = rospy.Service("pose_est_server", ShelfPose, self._pose_est_server_cb)
+        # Jaú custom spice-up <== 
+
         self._init_ros()
-        rospy.loginfo("[PoseDetectorNode]: Initialized FoundationPose")
+        rospy.loginfo("[PoseEstimator]: Initialized")
+    
+    def create_pose_msg(self,T):
+            pose_mat = T.reshape(4, 4)
+            pose_msg = PoseStamped()
+            pose_msg.header.stamp = rospy.Time.now()
+            pose_msg.header.frame_id = self.color_frame_id
+            pose_msg.pose.position.x = pose_mat[0, 3]
+            pose_msg.pose.position.y = pose_mat[1, 3]
+            pose_msg.pose.position.z = pose_mat[2, 3]
+            quat = R.from_matrix(pose_mat[:3, :3]).as_quat()
+            pose_msg.pose.orientation.x = quat[0]
+            pose_msg.pose.orientation.y = quat[1]
+            pose_msg.pose.orientation.z = quat[2]
+            pose_msg.pose.orientation.w = quat[3]
+            return pose_msg
+
+
+    def _pose_est_server_cb(self,request):
+        print("Computing pose...")
+
+        # for real:
+        #color = self.ros_to_cv2(request.color_frame)
+        #depth = self.ros_to_cv2(request.depth_frame)
+
+        print("color.shape: "+str(self.color.shape))
+        color = self.color
+        depth = self.depth
+
+        T_cs = self._detect_pose(color, depth)
+
+
+        bbox = self._mesh_props["bbox"]
+        frame_converter = CoordinateFrameConverter(T_cs,self._mesh_props,self._K)
+        T_ce = frame_converter.T_ce
+
+
+        # Create response
+        response = ShelfPoseResponse()
+        response.T_ce = self.create_pose_msg(T_ce)
+        response.mask = self.cv2_to_ros(self.final_mask)
+
+        return response
+
 
     def _init_ros(self):
         color_topic = rospy.get_param("ros/color_image_topic")
         depth_topic = rospy.get_param("ros/depth_image_topic")
-        debug_topic = rospy.get_param("ros/debug_image_topic", "/pose_detector/debug/image")
+        pose_debug_image_topic = rospy.get_param("ros/pose_debug_image_topic")
+        mask_debug_image_topic = rospy.get_param("ros/mask_debug_image_topic")
         pose_topic = rospy.get_param("ros/pose_topic", "/pose_detector/pose")
 
         self._bridge = CvBridge()
         self._img_sub = rospy.Subscriber(color_topic, Image, self._color_callback)
         self._depth_sub = rospy.Subscriber(depth_topic, Image, self._depth_callback)
         self._pose_pub = rospy.Publisher(pose_topic, PoseStamped, queue_size=1)
-        self._debug_pub = rospy.Publisher(debug_topic, Image, queue_size=1)
+        self._pose_debug_pub = rospy.Publisher(pose_debug_image_topic, Image, queue_size=1)
+        self._mask_debug_pub = rospy.Publisher(mask_debug_image_topic, Image, queue_size=1)
         self._debug_srv = rospy.Service("~debug_pose", SetBool, self._debug_callback)
 
     def _load_mesh(self, mesh_file):
@@ -96,6 +143,7 @@ class PoseDetector:
         bbox = np.stack([-extents / 2, extents / 2], axis=0).reshape(2, 3)
         mesh_props["to_origin"] = to_origin
         mesh_props["bbox"] = bbox
+        mesh_props["extents"] = extents
         return mesh, mesh_props
 
     def _debug_callback(self, req):
@@ -112,14 +160,12 @@ class PoseDetector:
         self._color_lock.acquire()
         self.color_frame_id = data.header.frame_id
         self.color = self.ros_to_cv2(data, desired_encoding="bgr8")
-        self.color = cv2.resize(self.color, (self.W,self.H), interpolation=cv2.INTER_NEAREST)
         self._has_color = True
         self._color_lock.release()
 
     def _depth_callback(self, data: Image):
         self._depth_lock.acquire()
         self.depth = self.ros_to_cv2(data, desired_encoding="passthrough").astype(np.uint16) / 1000.0
-        self.depth = cv2.resize(self.depth, (self.W,self.H), interpolation=cv2.INTER_NEAREST)
         self.depth[(self.depth < 0.1)] = 0
         self._has_depth = True
         self._depth_lock.release()
@@ -127,9 +173,19 @@ class PoseDetector:
     def _get_mask(self, color):
         try:
             rospy.wait_for_service("create_marker", timeout=10)
+            mask_request = CreateMaskRequest()
+            mask_request.data = self.cv2_to_ros(color)
             service_proxy = rospy.ServiceProxy("create_marker", CreateMask)
-            data = service_proxy(self.cv2_to_ros(color))
-            mask = self.ros_to_cv2(data.mask, desired_encoding="passthrough").astype(np.uint8).astype(bool)
+            mask_response = service_proxy(mask_request)
+            mask_msg = mask_response.mask
+            self._mask_debug_pub.publish(mask_msg)
+
+            mask = self.ros_to_cv2(mask_msg, desired_encoding="passthrough").astype(np.uint8).astype(bool)
+            # Jaú custom spice-up ==>
+            self.final_mask = mask.astype(np.uint8) * 255
+            print("gotten mask shape: "+str(mask.shape))
+
+            # Jaú custom spice-up <== 
             return mask
         except rospy.ROSException:
             rospy.logerr("[PoseDetectorNode]: Could not find service 'create_marker', Exiting!")
@@ -148,57 +204,22 @@ class PoseDetector:
 
     @torch.no_grad()
     def _detect_pose(self, color, depth):
+
         self._K = self._get_intrinsics()
-        self._K[:2] *= self.downscale # RESIZING
         mask = self._get_mask(color)
-        rospy.loginfo("[PoseDetectorNode]: Computing Pose")
-        pose = self._estimator.register(
-            K=self._K,
-            rgb=color,
-            depth=depth,
-            ob_mask=mask,
-            iteration=self._est_refine_iter,
-        )
+        T_ca = self._estimator.register(K=self._K,rgb=color,depth=depth,ob_mask=mask,iteration=self._est_refine_iter)
+        self._initialized = True
 
-        pose_mat = pose.reshape(4, 4)
-        pose_msg = PoseStamped()
-        pose_msg.header.stamp = rospy.Time.now()
-        pose_msg.header.frame_id = self.color_frame_id
-        pose_msg.pose.position.x = pose_mat[0, 3]
-        pose_msg.pose.position.y = pose_mat[1, 3]
-        pose_msg.pose.position.z = pose_mat[2, 3]
-        quat = R.from_matrix(pose_mat[:3, :3]).as_quat()
-        pose_msg.pose.orientation.x = quat[0]
-        pose_msg.pose.orientation.y = quat[1]
-        pose_msg.pose.orientation.z = quat[2]
-        pose_msg.pose.orientation.w = quat[3]
-        self._pose_pub.publish(pose_msg)
-        rospy.loginfo("[PoseDetectorNode]: Pose message published")
+        # Tramsform from "anchor" A frame to shelf frame
+        T_sa = self._mesh_props["to_origin"]
+        
+        T_cs = T_ca @ np.linalg.inv(T_sa)
 
-
-
-        if self._debug:
-            center_pose = pose @ np.linalg.inv(self._mesh_props["to_origin"])
-            pose_visualized = draw_posed_3d_box(self._K, img=color, ob_in_cam=center_pose, bbox=bounding_box)
-            pose_visualized = draw_xyz_axis(
-                color,
-                ob_in_cam=center_pose,
-                scale=0.1,
-                K=self._K,
-                thickness=3,
-                transparency=0,
-                is_input_rgb=True,
-            )
-            pose_visualized_msg = self.cv2_to_ros(pose_visualized)
-            pose_visualized_msg.header.stamp = pose_msg.header.stamp
-            self._debug_pub.publish(pose_visualized_msg)
-            rospy.loginfo("[PoseDetectorNode]:Visualization image published")
-       
-        self.done = True
+        return T_cs
 
     def _run_detector(self):
 
-        if self.done or not self._has_color or not self._has_depth:
+        if self._running or not self._has_color or not self._has_depth:
             return
 
         self._color_lock.acquire()
@@ -218,12 +239,9 @@ class PoseDetector:
             self._run_detector()
             self._rate.sleep()
 
-            if self.done:
-                rospy.signal_shutdown("[PoseDetectorNode]: Done -> Shutting down")
-
-
 
 if __name__ == "__main__":
-    rospy.init_node('foundation_pose_detector', anonymous=True)
+    rospy.init_node('pose_est_server', anonymous=True)
     pose_detector = PoseDetector()
-    pose_detector.run()
+    #pose_detector.run()
+    rospy.spin()

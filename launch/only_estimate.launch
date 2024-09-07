@@ -2,7 +2,7 @@
     <rosparam command="load" file="$(find foundation_pose_ros)/config/pose_detector.yaml" />
     <rosparam command="load" file="$(find foundation_pose_ros)/config/create_mask.yaml" />
 
-    <node pkg="foundation_pose_ros" type="pose_estimator.py" name="pose_detector_node" output="screen"/>
+    <node pkg="foundation_pose_ros" type="pose_est_server.py" name="pose_est_server" output="screen"/>
     <node pkg="foundation_pose_ros" type="create_mask_node.py" name="create_mask_node" output="screen"/>
 
     <!-- RVIZ 
