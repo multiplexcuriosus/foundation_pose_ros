@@ -4,4 +4,5 @@ sensor_msgs/Image depth_frame
 ---
 # Response constants
 geometry_msgs/PoseStamped T_ce 
-sensor_msgs/Image mask  
+sensor_msgs/Image mask 
+bool has_five_contours

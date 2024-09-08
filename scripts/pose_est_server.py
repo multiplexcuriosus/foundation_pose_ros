@@ -9,6 +9,11 @@ from std_msgs.msg import Bool
 from foundation_pose_ros.srv._CreateMask import CreateMask,CreateMaskRequest
 from foundation_pose_ros.srv._ShelfPose import ShelfPose,ShelfPoseResponse
 
+
+from foundation_pose.utils import set_logging_format, set_seed, draw_posed_3d_box, draw_xyz_axis, \
+                                  project_3d_to_2d,draw_line3d,get_box_corners,draw_point3d,get_T_ce
+
+
 import cv2
 import copy
 import numpy as np
@@ -89,20 +94,37 @@ class PoseDetector:
 
         # for real:
         color = self.ros_to_cv2(request.color_frame)
-        depth = self.ros_to_cv2(request.depth_frame,desired_encoding="passthrough")
-        depth = depth.astype(np.uint8)
+        depth = self.ros_to_cv2(request.depth_frame, desired_encoding="passthrough").astype(np.uint16) / 1000.0
+        #depth = self.ros_to_cv2(request.depth_frame,desired_encoding="passthrough")
+        #depth = depth.astype(np.uint8)
 
         #print("color.shape: "+str(color.shape))
 
         T_cs = self._detect_pose(color, depth)
+        print("T_cs: "+str(T_cs))
 
         frame_converter = CoordinateFrameConverter(T_cs,self._mesh_props,self._K)
         T_ce = frame_converter.T_ce
 
         # Create response
         response = ShelfPoseResponse()
-        response.T_ce = self.create_pose_msg(T_ce)
+        T_ce_msg = self.create_pose_msg(T_ce)
+        print("T_ce_msg: "+str(T_ce_msg))
+        response.T_ce = T_ce_msg
         response.mask = self.cv2_to_ros(self.final_mask)
+        response.has_five_contours = self.final_mask_has_five_contours
+
+                
+        if self._debug:
+            # Draw bbox and T_CA coord axes
+            pose_visualized = draw_posed_3d_box(self._K, img=color, ob_in_cam=T_cs, bbox=self._mesh_props["bbox"]) # 
+            pose_visualized = draw_xyz_axis(color,ob_in_cam=T_cs,scale=0.1,K=self._K,thickness=3, transparency=0,is_input_rgb=True) 
+            
+            # Draw grasp poses 
+            pose_visualized = draw_xyz_axis(pose_visualized,ob_in_cam=T_cs,scale=0.05,K=self._K,thickness=2,transparency=0,is_input_rgb=True)
+
+            pose_visualized_msg = self.cv2_to_ros(pose_visualized)
+            self._pose_debug_pub.publish(pose_visualized_msg)
 
         #self.customShutdown()
         return response
@@ -169,6 +191,7 @@ class PoseDetector:
             mask = self.ros_to_cv2(mask_msg, desired_encoding="passthrough").astype(np.uint8).astype(bool)
             
             self.final_mask = mask.astype(np.uint8) * 255
+            self.final_mask_has_five_contours = mask_response.has_five_contours
             print("gotten mask shape: "+str(mask.shape))
 
 

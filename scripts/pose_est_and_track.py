@@ -69,6 +69,7 @@ class PoseDetector:
         debug_topic = rospy.get_param("ros/debug_image_topic", "/pose_detector/debug/image")
         pose_topic = rospy.get_param("ros/pose_topic", "/pose_detector/pose")
         mask_debug_image_topic = rospy.get_param("ros/mask_debug_image_topic")
+        pose_debug_image_topic = rospy.get_param("ros/pose_debug_image_topic")
 
         self._bridge = CvBridge()
         self._img_sub = rospy.Subscriber(color_topic, Image, self._color_callback)
@@ -76,7 +77,7 @@ class PoseDetector:
         self._pose_pub = rospy.Publisher(pose_topic, PoseStamped, queue_size=1)
         self._mask_debug_pub = rospy.Publisher(mask_debug_image_topic, Image, queue_size=1)
         self._mask_pub = rospy.Publisher("fp_mask", Image, queue_size=1)
-        self._debug_pub = rospy.Publisher(debug_topic, Image, queue_size=1)
+        self._debug_pub = rospy.Publisher(pose_debug_image_topic, Image, queue_size=1)
         self._debug_srv = rospy.Service("~debug_pose", SetBool, self._debug_callback)
 
     def _load_mesh(self, mesh_file):
@@ -317,6 +318,7 @@ class PoseDetector:
 
 
     def _detect_pose(self, color, depth):   
+        print("Detecting pose")
         self._running = True
         if not self._initialized:
             self._K = self._get_intrinsics()
@@ -334,6 +336,7 @@ class PoseDetector:
         
         
         T_cs = T_ca @ np.linalg.inv(T_sa)
+        print("T_cs: "+str(T_cs))
 
         # Get all poses
         #T_cg0,T_cg1,T_cg2,T_cg3,T_cdo0,T_cdo1 = self.get_grasp_and_drop_off_poses(T_cs)
@@ -373,6 +376,7 @@ class PoseDetector:
             pose_visualized_msg = self.cv2_to_ros(pose_visualized)
             pose_visualized_msg.header.stamp = T_ca_msg.header.stamp
             self._debug_pub.publish(pose_visualized_msg)
+            rospy.signal_shutdown("debug")
 
         self._running = False
 

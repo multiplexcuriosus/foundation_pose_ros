@@ -51,7 +51,6 @@ class SAMMaskPredictor:
     def cv2_to_ros(self, frame: np.ndarray):
         return self._bridge.cv2_to_imgmsg(frame, encoding="mono8")
 
-
     def _predict(self,image):
       
         sam = sam_model_registry[self._model_type](checkpoint=self._checkpoint)
@@ -91,7 +90,7 @@ class SAMMaskPredictor:
         img_msg = self.cv2_to_ros(best_mask)
         print("[CreateMaskServer] :  Response sent")
 
-        return CreateMaskResponse(mask=img_msg)
+        return CreateMaskResponse(mask=img_msg,has_five_contours=has_5_contours)
     
     def clean_mask(self,mask,k):
         # Apply structuring element
@@ -109,7 +108,7 @@ class SAMMaskPredictor:
                 #mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
                 contours, hier = cv2.findContours(mask,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
                 N_conts = len(contours)
-                print("N contours: "+str(N_conts))
+                #print("N contours: "+str(N_conts))
                 if N_conts == 5:
                     return mask,True       
                 #cv2.imshow("",mask)
