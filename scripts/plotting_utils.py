@@ -29,19 +29,19 @@ def get_seg_points(image):
 def onclickbutton(event, object_points, background_points):
     if event.button == 1:
         object_points.append((event.xdata, event.ydata))
-        rospy.loginfo(f"[CreateMaskNode]: Left click at: {event.xdata}, {event.ydata}. Object point added.")
+        #rospy.loginfo(f"[CreateMaskNode]: Left click at: {event.xdata}, {event.ydata}. Object point added.")
         event.inaxes.scatter(
             event.xdata, event.ydata, color='green', marker='*', s=200, edgecolor='white', linewidth=1.25
         )
     elif event.button == 3:
         background_points.append((event.xdata, event.ydata))
-        rospy.loginfo(f"[CreateMaskNode]: Right Click at: {event.xdata}, {event.ydata}. Background point added.")
+        #rospy.loginfo(f"[CreateMaskNode]: Right Click at: {event.xdata}, {event.ydata}. Background point added.")
         event.inaxes.scatter(
             event.xdata, event.ydata, color='red', marker='*', s=200, edgecolor='white', linewidth=1.25
         )
     else:
         return
-    rospy.loginfo(f"[CreateMaskNode]: Total object points: {len(object_points)}, Total background points: {len(background_points)}\n----\n")
+    #rospy.loginfo(f"[CreateMaskNode]: Total object points: {len(object_points)}, Total background points: {len(background_points)}\n----\n")
     plt.draw()
 
 
@@ -98,5 +98,5 @@ def onclickaxis(event, fig, ax_list, ax_index):
         ax_index["index"] = -1
         return
     ax_index["index"] = ax_list.index(clicked_ax)
-    rospy.loginfo(f"[CreateMaskNode]: Selected mask {ax_index['index'] + 1}. You can close the window now.")
+    #rospy.loginfo(f"[CreateMaskNode]: Selected mask {ax_index['index'] + 1}. You can close the window now.")
     plt.close(fig)
