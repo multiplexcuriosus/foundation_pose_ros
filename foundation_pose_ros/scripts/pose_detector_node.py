@@ -17,7 +17,7 @@ from threading import Lock
 from scipy.spatial.transform import Rotation as R
 
 from foundation_pose.estimater import FoundationPose, PoseRefinePredictor, ScorePredictor
-from foundation_pose.Utils import set_logging_format, set_seed, draw_posed_3d_box, draw_xyz_axis
+from foundation_pose.utils import set_logging_format, set_seed, draw_posed_3d_box, draw_xyz_axis
 
 
 class PoseDetector:

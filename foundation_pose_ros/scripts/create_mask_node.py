@@ -2,6 +2,7 @@
 
 import rospy
 import rospkg
+import gc
 import os
 import torch
 
@@ -46,6 +47,8 @@ class SAMMaskPredictor:
             multimask_output=True,
         )
         del sam
+        gc.collect()
+        torch.cuda.empty_cache()
         return masks, scores, logits
 
     def _handle_create_mask(self, req):
