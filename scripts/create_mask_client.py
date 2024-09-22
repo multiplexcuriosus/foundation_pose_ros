@@ -31,22 +31,23 @@ class CreateMaskClient:
 
         self._init_ros()
 
-        rospy.wait_for_service("create_marker")
-        print("[PoseEstimator]: Initialized")
+        rospy.wait_for_service("create_mask")
+        print("[MaskCreatorClient]: Initialized")
 
-        print("[PoseEstimator]: Waiting for color frame...")
-        while self.last_color is None:
-            pass
+        color_img_path = "/home/jau/Desktop/cleanup_tests/rgb_new.png"
+        color = cv2.imread(color_img_path)
 
         mask_request = CreateMaskRequest()
-        mask_request.data = self.cv2_to_ros(self.last_color)
+        mask_request.data = self.cv2_to_ros(color)
 
-        create_mask_service_handle = rospy.ServiceProxy("create_marker", CreateMask)
-        print("[PoseEstimator]: Request sent")
+        create_mask_service_handle = rospy.ServiceProxy("create_mask", CreateMask)
+        print("[MaskCreatorClient]: Request sent")
         mask_response = create_mask_service_handle(mask_request)
-        print("[PoseEstimator]: Got mask: ")
+        print("[MaskCreatorClient]: Got mask: ")
         mask_msg = mask_response.mask
         mask = self.ros_to_cv2(mask_msg, desired_encoding="passthrough").astype(np.uint8)   
+        mask_path = "/home/jau/Desktop/cleanup_tests/resulting_mask.png"
+        cv2.imwrite(mask_path,mask)
 
 
    
@@ -76,6 +77,5 @@ class CreateMaskClient:
 
 if __name__ == "__main__":
     rospy.init_node('pose_est_client')
-    pose_client = CreateMaskClient()
-    #pose_detector.run()
+    create_mask_client = CreateMaskClient()
     rospy.spin()

@@ -17,7 +17,7 @@ catkin_python_setup()
 add_service_files(
   FILES
   CreateMask.srv
-  ShelfPose.srv
+  EstPose.srv
 )
 
 ## Generate added messages and services with any dependencies listed here

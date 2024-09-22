@@ -2,6 +2,6 @@
     
 
     <rosparam command="load" file="$(find foundation_pose_ros)/config/create_mask.yaml" />
-    <node pkg="foundation_pose_ros" type="create_mask_node.py" name="create_mask_node" output="screen"/>
+    <node pkg="foundation_pose_ros" type="create_mask_server.py" name="create_mask_server" output="screen"/>
 
 </launch>

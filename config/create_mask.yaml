@@ -2,3 +2,5 @@ sam:
   checkpoint: "models/sam/sam_vit_h_4b8939.pth"
   model_type: "vit_h"
   device: "cuda"
+  choose_largest_mask: True 
+  inspect_masks: False # Only makes sense if choose_largest_mask==False --> if True, will loop through all masks but select first one

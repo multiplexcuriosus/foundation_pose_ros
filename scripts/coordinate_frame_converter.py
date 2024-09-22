@@ -41,8 +41,6 @@ class CoordinateFrameConverter:
     def get_R(self,corners_C):
         return sorted(corners_C,key=lambda pt: -pt[0])[0:4]
 
-
-
     def get_T_ce(self,corners_C):
         # ID CORNERS ##################################################
 
