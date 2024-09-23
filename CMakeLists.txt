@@ -17,7 +17,7 @@ catkin_python_setup()
 add_service_files(
   FILES
   CreateMask.srv
-  EstPose.srv
+  EstimatePose.srv
 )
 
 ## Generate added messages and services with any dependencies listed here

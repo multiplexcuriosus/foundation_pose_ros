@@ -16,16 +16,25 @@ class PoseEstClient:
     def __init__(self) -> None:
 
         self._bridge = CvBridge()
+        self.color = None
+        self.depth = None
+        self.color_msg = None
+        self.depth_msg = None
 
         rospy.wait_for_service("pose_est")
         print("[PoseEstClient]: Initialized")
 
-        color_img_path = "/home/jau/Desktop/cleanup_tests/rgb_new.png"
-        color = cv2.imread(color_img_path)
-        depth_img_path = "/home/jau/Desktop/cleanup_tests/depth_new.png"
-        depth = cv2.imread(depth_img_path)
+        color_topic = rospy.get_param("ros/color_image_topic")
+        depth_topic = rospy.get_param("ros/depth_image_topic")
+        self._color_sub = rospy.Subscriber(color_topic, Image, self._color_callback)
+        self._depth_sub = rospy.Subscriber(depth_topic, Image, self._depth_callback)
 
-        pose_request = EstPoseRequest(self.cv2_to_ros(color),self.cv2_to_ros(depth))
+        print("[PoseEstClient]: Waiting for color and depth imgs...")
+        while self.color is None or self.depth is None:
+            pass
+        print("[PoseEstClient]: Color and depth img received!")
+
+        pose_request = EstPoseRequest(self.color_msg,self.depth_msg)
     
         pose_est_service_handle = rospy.ServiceProxy("pose_est", EstPose)
         print("[PoseEstClient]: Request sent")
@@ -33,6 +42,17 @@ class PoseEstClient:
         print("[PoseEstClient]: Got pose: ")
         pose_msg = pose_response.T_ce
         print(pose_msg)
+
+
+    def _color_callback(self, data: Image):
+        self.color = self.ros_to_cv2(data, desired_encoding="bgr8")
+        self.color_msg = data
+
+
+    def _depth_callback(self, data: Image):
+        self.depth_msg = data
+        self.depth = self.ros_to_cv2(data, desired_encoding="passthrough").astype(np.uint16).copy() / 1000.0
+        self.depth[(self.depth < 0.1)] = 0
 
 
     def ros_to_cv2(self, frame: Image, desired_encoding="bgr8"):

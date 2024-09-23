@@ -29,9 +29,9 @@ class CreateMaskClient:
 
     def __init__(self) -> None:
 
-        self._init_ros()
+        self._bridge = CvBridge()
 
-        rospy.wait_for_service("create_mask")
+        rospy.wait_for_service("create_mask_service")
         print("[MaskCreatorClient]: Initialized")
 
         color_img_path = "/home/jau/Desktop/cleanup_tests/rgb_new.png"
@@ -40,7 +40,7 @@ class CreateMaskClient:
         mask_request = CreateMaskRequest()
         mask_request.data = self.cv2_to_ros(color)
 
-        create_mask_service_handle = rospy.ServiceProxy("create_mask", CreateMask)
+        create_mask_service_handle = rospy.ServiceProxy("create_mask_service", CreateMask)
         print("[MaskCreatorClient]: Request sent")
         mask_response = create_mask_service_handle(mask_request)
         print("[MaskCreatorClient]: Got mask: ")
@@ -53,16 +53,6 @@ class CreateMaskClient:
    
     def _color_callback(self, data: Image):
         self.last_color = self.ros_to_cv2(data, desired_encoding="bgr8")
-
-
-
-    def _init_ros(self):
-        color_topic = rospy.get_param("ros/color_image_topic")
-        self.last_color = None
-
-        self._bridge = CvBridge()
-        self._img_sub = rospy.Subscriber(color_topic, Image, self._color_callback)
-
 
 
     def ros_to_cv2(self, frame: Image, desired_encoding="bgr8"):

@@ -1,27 +1,22 @@
 #!/usr/bin/env python3
 
-import rospy
-from cv_bridge import CvBridge
-from geometry_msgs.msg import PoseStamped
-from sensor_msgs.msg import CameraInfo, Image
-from std_srvs.srv import SetBool,SetBoolResponse
-from std_msgs.msg import Bool
-from foundation_pose_ros.srv._CreateMask import CreateMask,CreateMaskRequest
-from foundation_pose_ros.srv._EstPose import EstPose,EstPoseResponse
-
-from foundation_pose.utils import set_logging_format, set_seed, draw_posed_3d_box, draw_xyz_axis
-                                  #project_3d_to_2d,draw_line3d,get_box_corners,draw_point3d,get_T_ce
-
-
 import cv2
 import numpy as np
 import torch
 import gc
 import trimesh
 import nvdiffrast.torch as dr
-from threading import Lock
 from scipy.spatial.transform import Rotation as R
 
+import rospy
+from cv_bridge import CvBridge
+from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import CameraInfo, Image
+from std_srvs.srv import SetBool
+from std_msgs.msg import Bool
+
+from foundation_pose_ros.srv._CreateMask import CreateMask,CreateMaskRequest
+from foundation_pose_ros.srv._EstimatePose import EstimatePose,EstimatePoseResponse
 from foundation_pose.estimater import FoundationPose, PoseRefinePredictor, ScorePredictor
 from foundation_pose.utils import set_logging_format, set_seed, draw_posed_3d_box, draw_xyz_axis
 
@@ -41,18 +36,16 @@ class PoseDetector:
     """
     def __init__(self):
         
-        # For reproducability (?)
-        seed = rospy.get_param("pose_detector/seed", 0)
+        seed = rospy.get_param("pose_detector/seed", 0)  # For reproducability (?)
         set_seed(seed)
 
         # set_logging_format()
         self._debug = True
-
-        # Load mesh file by name specified in yaml file
+        
         mesh_file = rospy.get_param("pose_detector/mesh_file")
         self._mesh, self._mesh_props = self._load_mesh(mesh_file)
 
-        # Load tuning params from yaml file
+        # Load foundationpose tuning params from yaml file
         self._rate = rospy.Rate(rospy.get_param("pose_detector/refresh_rate"))
         self._est_refine_iter = rospy.get_param("pose_detector/estimator_refine_iters")
         self._track_refine_iter = rospy.get_param("pose_detector/tracker_refine_iters")
@@ -70,8 +63,7 @@ class PoseDetector:
             glctx=self.glctx,
         )
 
-        # Start pose_est service
-        self.service = rospy.Service("pose_est", EstPose, self._pose_est_cb)
+        self.service = rospy.Service("estimate_pose_service", EstimatePose, self._pose_est_cb)
 
         self._init_ros()
         print("[PoseEstServer]: Initialized")
@@ -93,7 +85,6 @@ class PoseDetector:
 
     def _pose_est_cb(self,request):
         
-        # Extract color and depth image from request
         color = self.ros_to_cv2(request.color_frame)
         depth = self.ros_to_cv2(request.depth_frame, desired_encoding="passthrough").astype(np.uint16) / 1000.0
 
@@ -107,7 +98,7 @@ class PoseDetector:
         T_ce = frame_converter.T_ce
 
         # Create response
-        response = EstPoseResponse()
+        response = EstimatePoseResponse()
         T_ce_msg = self.create_pose_msg(T_ce)
         print("T_ce_msg: "+str(T_ce_msg))
         response.T_ce = T_ce_msg
@@ -127,23 +118,12 @@ class PoseDetector:
 
         return response
 
-    def _load_mesh(self, mesh_file):
-        mesh = trimesh.load(mesh_file, force="mesh")
-        rospy.loginfo("[PoseDetectorNode]: Loaded mesh from %s", mesh_file)
-        mesh_props = dict() # Store mesh properties
-        to_origin, extents = trimesh.bounds.oriented_bounds(mesh)
-        bbox = np.stack([-extents / 2, extents / 2], axis=0).reshape(2, 3)
-        mesh_props["to_origin"] = to_origin # to_origin == T_sa
-        mesh_props["bbox"] = bbox
-        mesh_props["extents"] = extents
-        return mesh, mesh_props
-
     def _get_mask(self, color):
         try:
-            rospy.wait_for_service("create_mask", timeout=10)
+            rospy.wait_for_service("create_mask_service", timeout=10)
             mask_request = CreateMaskRequest()
             mask_request.data = self.cv2_to_ros(color)
-            service_proxy = rospy.ServiceProxy("create_mask", CreateMask)
+            service_proxy = rospy.ServiceProxy("create_mask_service", CreateMask)
             mask_response = service_proxy(mask_request)
             mask_msg = mask_response.mask
             self._mask_debug_pub.publish(mask_msg)
@@ -162,17 +142,7 @@ class PoseDetector:
             rospy.signal_shutdown("Could not find service 'create_mask'")
             exit(1)
 
-    def _get_intrinsics(self):
-        intrinsics_topic = rospy.get_param("ros/camera_info_topic")
-        try:
-            data = rospy.wait_for_message(intrinsics_topic, CameraInfo, timeout=10.0)
-            K = np.array(data.K).reshape(3, 3).astype(np.float64)
-            return K
-        except rospy.ROSException:
-            rospy.logwarn(f"[OPC-PoseDetectorNode]: Failed to get intrinsics from topic '{intrinsics_topic}', retrying...")
-            return self._get_intrinsics()
-
-    @torch.no_grad() # Tell torch to not compute gradiens to save gpu memory
+    @torch.no_grad() # Tell torch to not compute gradients to save gpu memory
     def _estimate_pose(self, color, depth):
         
         self._K = self._get_intrinsics()
@@ -188,6 +158,29 @@ class PoseDetector:
 
         return T_cs
     
+
+    # Utils ---------------------------------------------------------
+    def _load_mesh(self, mesh_file):
+        mesh = trimesh.load(mesh_file, force="mesh")
+        rospy.loginfo("[PoseDetectorNode]: Loaded mesh from %s", mesh_file)
+        mesh_props = dict() # Store mesh properties
+        to_origin, extents = trimesh.bounds.oriented_bounds(mesh) # to_origin == T_sa
+        bbox = np.stack([-extents / 2, extents / 2], axis=0).reshape(2, 3)
+        mesh_props["to_origin"] = to_origin 
+        mesh_props["bbox"] = bbox
+        mesh_props["extents"] = extents
+        return mesh, mesh_props
+
+    def _get_intrinsics(self):
+        intrinsics_topic = rospy.get_param("ros/camera_info_topic")
+        try:
+            data = rospy.wait_for_message(intrinsics_topic, CameraInfo, timeout=10.0)
+            K = np.array(data.K).reshape(3, 3).astype(np.float64)
+            return K
+        except rospy.ROSException:
+            rospy.logwarn(f"[OPC-PoseDetectorNode]: Failed to get intrinsics from topic '{intrinsics_topic}', retrying...")
+            return self._get_intrinsics()
+
     def _debug_callback(self, req):
         self._debug = req.data
         return True, "Debug mode set to {}".format(self._debug)
@@ -226,7 +219,7 @@ class PoseDetector:
         gc.collect()
         torch.cuda.empty_cache()
 
-
+    # ---------------------------------------------------------------------
 if __name__ == "__main__":
     rospy.init_node('pose_est_server', anonymous=True)
     pose_detector = PoseDetector()

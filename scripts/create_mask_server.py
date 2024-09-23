@@ -40,7 +40,7 @@ class SAMMaskPredictor:
         self._bridge = CvBridge()
 
         # Start create_mask service
-        self.service = rospy.Service("create_mask", CreateMask, self._handle_create_mask)
+        self.service = rospy.Service("create_mask_service", CreateMask, self._handle_create_mask)
 
         # Start shutdown-service
         self._shutdown_srv = rospy.Subscriber("/shutdown_spice_up", Bool, self._shutdown_cb)
@@ -116,6 +116,8 @@ class SAMMaskPredictor:
         contours, hier = cv2.findContours(mask,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
         return len(contours)
 
+    # Utils -------------------------------------------------------
+
     def _clean_mask(self,mask,kernel_size):
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size,kernel_size))
         morph = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -133,6 +135,8 @@ class SAMMaskPredictor:
             rospy.signal_shutdown("Job done")
         return True
     
+    # ---------------------------------------------------------------
+
 if __name__ == "__main__":
 
     rospy.init_node("create_mask_server", anonymous=True)
