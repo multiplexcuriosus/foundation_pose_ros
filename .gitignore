@@ -7,7 +7,7 @@
 models/
 
 # cad models
-data/
+#data/
 
 # Node artifact files
 node_modules/
