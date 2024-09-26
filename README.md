@@ -1,5 +1,3 @@
-# foundationpose_ros
-
 ## Create mask param behaviour
 
 ### I 
