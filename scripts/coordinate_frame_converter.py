@@ -3,7 +3,12 @@ import cv2
 
 class CoordinateFrameConverter:
     def __init__(self,T_cs,mesh_props,K) -> None:
-
+        '''
+        The CoordinateFrameConverter receives the T_cs pose and some mesh properties as input and converts the T_cs pose to the T_ce pose.
+        T_cs: pose from camera to shelf center, orientation one of four 90° roll rotations.
+        T_ce: pose form camera to E-frame. See definition of E-frame in Readme of spice_up_coordinator.
+        '''
+        
         self.bbox = mesh_props["bbox"]
         self.extents = mesh_props["extents"]
         self._K = K
@@ -36,14 +41,14 @@ class CoordinateFrameConverter:
         return box_corners_S
 
     def get_L(self,corners_C):
+        # Sort by camera-x axis ascending
         return sorted(corners_C,key=lambda pt: pt[0])[0:4]
 
     def get_R(self,corners_C):
+        # Sort by camera-x axis descending
         return sorted(corners_C,key=lambda pt: -pt[0])[0:4]
 
     def get_T_ce(self,corners_C):
-        # ID CORNERS ##################################################
-
         # Get left corners
         L_C = self.get_L(corners_C)
 
@@ -87,7 +92,7 @@ class CoordinateFrameConverter:
             I = R2
             E = R1
 
-
+        # Construct E-frame
         x = F - E
         y = D - E
         z = G - E
