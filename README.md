@@ -145,6 +145,7 @@ The spice_selection_gui node is launched by selecting the `SpiceSelectionPlugin`
 ### create_mask_service
 The `create_mask_service` can be tested by running:  
 ```
+conda activate foundationpose # Terminal 1
 rosrun foundation_pose_ros create_mask_server.py # Terminal 1
 rosrun foundation_pose_ros create_mask_client.py # Terminal 2
 ```
@@ -156,6 +157,7 @@ In the file `create_mask_server.py`, the following variables need to be adjusted
 
 The `estimate_pose_service` service can be tested by running:  
 ```
+conda activate foundationpose # Terminal 1
 rosrun foundation_pose_ros pose_est_server.py # Terminal 1
 rosrun foundation_pose_ros pose_est_client.py # Terminal 2
 ```
