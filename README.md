@@ -107,7 +107,7 @@ sudo rm /tmp/material.mtl
 ```
 
 ## Setup
-###create_mask_server (create_mask.yaml)###  
+### create_mask_server (create_mask.yaml) ###  
 Possible configurations:  
 **I**     
 `sam/choose_largest_mask:  True`: The create_mask_server node will automatically choose the largest mask among the masks it got from SAM. 'choose_largest_mask' has no effect  
