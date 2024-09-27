@@ -36,7 +36,7 @@ class PoseEstClient:
 
         pose_request = EstPoseRequest(self.color_msg,self.depth_msg)
     
-        pose_est_service_handle = rospy.ServiceProxy("pose_est", EstPose)
+        pose_est_service_handle = rospy.ServiceProxy("estimate_pose_service", EstPose)
         print("[PoseEstClient]: Request sent")
         pose_response = pose_est_service_handle(pose_request)
         print("[PoseEstClient]: Got pose: ")
