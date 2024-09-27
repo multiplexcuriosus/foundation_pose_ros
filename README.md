@@ -107,15 +107,19 @@ sudo rm /tmp/material.mtl
 ```
 
 ## Setup
-### create_mask
-**Create mask: possible parameter configurations **
-In foundation_pose_ros/config/create_mask.yaml:  
+###create_mask_server (create_mask.yaml)###  
+Possible configurations:  
 **I**     
 `sam/choose_largest_mask:  True`: The create_mask_server node will automatically choose the largest mask among the masks it got from SAM. 'choose_largest_mask' has no effect  
 **II**     
 `sam/choose_largest_mask: False` && `sam/inspect_masks: False`: The create_mask_server node will loop through all masks and return the largest one with five contours. If no mask has five contours the largest one is returned.  
 **III**   
 `sam/choose_largest_mask: False` && `sam/inspect_masks: True`: Same as II + ALL found masks are displayed (with cv2.waitKey(0)). The largest one is returned.
+### pose_est_server (pose_detector.yaml)
+* Set `pose_detector/mesh_file` to path with valid mesh file
+* (optional): Tune `pose_detector/estimator_refine_iters` & `tracker_refine_iters: 10`
+* When testing on real robot: replace `/camera` in all relevant `ros: ...` yaml-parameters
+
 
 
 
