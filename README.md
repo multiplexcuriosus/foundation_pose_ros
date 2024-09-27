@@ -1,10 +1,10 @@
 # The foundation_pose_ros node
 This ReadMe is structured into:
+* **Overview** 
 * **Installation** (foundation_pose_ros+spice_selection_gui)
 * **Setup** (foundation_pose_ros+spice_selection_gui)
 * **Launch** (foundation_pose_ros+spice_selection_gui)
-* **Overview** 
-* **PoseProcessor**
+
 
 ## Installation
 ### foundation_pose_ros  
