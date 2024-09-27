@@ -92,6 +92,12 @@ Solution:
 catkin build foundation_pose_ros -DPYTHON_EXECUTABLE=/usr/bin/python3
 catkin build spice_selection_gui -DPYTHON_EXECUTABLE=/usr/bin/python3
 ```  
+Error: `PermissionError: [Errno 13] Permission denied: '/tmp/material_0.png'`  
+Solution:  
+```
+sudo rm /tmp/material_0.png
+sudo rm /tmp/material.mtl
+```
 
 ## Setup
 ### Create mask: possible parameter configurations 
