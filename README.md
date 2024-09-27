@@ -7,8 +7,8 @@ This ReadMe is structured into:
 * **PoseProcessor**
 
 ## Installation
-### foundation_pose_ros
-Install Foundationpose:  
+### foundation_pose_ros  
+
 1. Install conda or mamba  
 2. Setup the conda environment (based on instructions [here](https://github.com/leggedrobotics/foundation_pose_ros))
 ```
