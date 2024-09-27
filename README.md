@@ -120,6 +120,22 @@ Possible configurations:
 * (optional): Tune `pose_detector/estimator_refine_iters` & `pose_detector/tracker_refine_iters`
 * When testing on real robot: replace `/camera` in all relevant `ros: ...` yaml-parameters, e.g `/camera/color/camera_info`
 
+## Launch
+There is only one relevant launch file: `only_estimate.launch`.   
+It launches:
+* the parameter files:  
+ * `pose_detector.yaml`
+ * `create_mask.yaml`  
+* the `foundation_pose_ros` node
+* the services:  
+ * `pose_est_server` 
+ * `create_mask_server`   
+
+Launch with:
+```
+roslaunch foundation_pose_ros all.launch
+```
+
 
 
 
