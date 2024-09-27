@@ -107,7 +107,8 @@ sudo rm /tmp/material.mtl
 ```
 
 ## Setup
-### Create mask: possible parameter configurations 
+### create_mask
+**Create mask: possible parameter configurations **
 In foundation_pose_ros/config/create_mask.yaml:  
 **I**     
 `sam/choose_largest_mask:  True`: The create_mask_server node will automatically choose the largest mask among the masks it got from SAM. 'choose_largest_mask' has no effect  
