@@ -1,6 +1,13 @@
-## Installation of foundation_pose_ros & spice_selection_gui on OPC  
-### foundation_pose_ros  
+# The foundation_pose_ros node
+This ReadMe is structured into:
+* **Installation** (foundation_pose_ros+spice_selection_gui)
+* **Setup** (foundation_pose_ros+spice_selection_gui)
+* **Launch** (foundation_pose_ros+spice_selection_gui)
+* **Overview** 
+* **PoseProcessor**
 
+## Installation
+### foundation_pose_ros
 Install Foundationpose:  
 1. Install conda or mamba  
 2. Setup the conda environment (based on instructions [here](https://github.com/leggedrobotics/foundation_pose_ros))
