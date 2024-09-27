@@ -2,7 +2,7 @@
 This ReadMe is structured into:
 * **Overview** 
 * **Installation** (foundation_pose_ros+spice_selection_gui)
-* **Setup** (foundation_pose_ros+spice_selection_gui)
+* **Configuration** (foundation_pose_ros+spice_selection_gui)
 * **Launch** (foundation_pose_ros+spice_selection_gui)
 
 
@@ -108,7 +108,7 @@ sudo rm /tmp/material_0.png
 sudo rm /tmp/material.mtl
 ```
 
-## Setup
+## Configuration
 ### create_mask_server (foundation_pose_ros/config/create_mask.yaml) ###  
 Possible configurations:  
 **I**     
