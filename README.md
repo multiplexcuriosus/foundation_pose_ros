@@ -124,12 +124,12 @@ Possible configurations:
 There is only one relevant launch file: `only_estimate.launch`.   
 It launches:
 * the parameter files:  
- * `pose_detector.yaml`
- * `create_mask.yaml`  
+  * `pose_detector.yaml`
+  * `create_mask.yaml`  
 * the `foundation_pose_ros` node
 * the services:  
- * `pose_est_server` 
- * `create_mask_server`   
+  * `pose_est_server` 
+  * `create_mask_server`   
 
 Launch with:
 ```
