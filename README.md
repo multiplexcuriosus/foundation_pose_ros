@@ -124,9 +124,7 @@ Possible configurations:
 
 ## Launch
 ### foundation_pose_ros
-There is only one relevant launch file: `only_estimate.launch`.   
-
-It launches:
+There is only one relevant launch file: `only_estimate.launch`. It launches:
 * the parameter files:  
   * `pose_detector.yaml`
   * `create_mask.yaml`  
