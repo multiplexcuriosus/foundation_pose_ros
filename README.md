@@ -137,12 +137,8 @@ Launch with:
 roslaunch foundation_pose_ros all.launch
 ```
 ### spice_up_plugin
-The spice_up_plugin can be launched by:
-* Selecting the `SpiceUpPlugin` in the rqt-plugin-dropdown
-* By running:
-```
-rqt --stand-alone spice_up_plugin
-```
+The spice_selection_gui node is launched by selecting the `SpiceSelectionPlugin` in the rqt-plugin-dropdown. The spice_selection_gui will then provide the `spice_name_server` service.
+
 
 
 
