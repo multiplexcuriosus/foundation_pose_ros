@@ -117,7 +117,7 @@ Possible configurations:
 `sam/choose_largest_mask: False` && `sam/inspect_masks: True`: Same as II + ALL found masks are displayed (with cv2.waitKey(0)). The largest one is returned.
 ### pose_est_server (foundation_pose_ros/config/pose_detector.yaml)
 * Set `pose_detector/mesh_file` to path with valid mesh file
-* (optional): Tune `pose_detector/estimator_refine_iters` & `tracker_refine_iters: 10`
+* (optional): Tune `pose_detector/estimator_refine_iters` & `pose_detector/tracker_refine_iters`
 * When testing on real robot: replace `/camera` in all relevant `ros: ...` yaml-parameters
 
 
