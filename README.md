@@ -8,7 +8,6 @@ This ReadMe is structured into:
 
 ## Overview
 ![sa_slide_extraction-7](https://github.com/user-attachments/assets/c232ff90-586b-401d-b2fb-4ca687f82a6d)
-
 ## Installation
 ### foundation_pose_ros  
 
@@ -142,7 +141,25 @@ roslaunch foundation_pose_ros all.launch
 ### spice_up_plugin
 The spice_selection_gui node is launched by selecting the `SpiceSelectionPlugin` in the rqt-plugin-dropdown. The spice_selection_gui will then provide the `spice_name_server` service.
 
+## Testing
+### create_mask_service
+The `create_mask_service` can be tested by running:  
+```
+rosrun foundation_pose_ros create_mask_server.py # Terminal 1
+rosrun foundation_pose_ros create_mask_client.py # Terminal 2
+```
+In the file `create_mask_server.py`, the following variables need to be adjusted:  
+* `color_img_path`
+* `mask_path`
 
+### estimate_pose_service
+
+The `estimate_pose_service` service can be tested by running:  
+```
+rosrun foundation_pose_ros pose_est_server.py # Terminal 1
+rosrun foundation_pose_ros pose_est_client.py # Terminal 2
+```
+Color-imgs, depth-imgs and intrinsics-info must be present in the ros network.
 
 
 
