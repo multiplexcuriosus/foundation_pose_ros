@@ -21,7 +21,7 @@ class PoseEstClient:
         self.color_msg = None
         self.depth_msg = None
 
-        rospy.wait_for_service("pose_est")
+        rospy.wait_for_service("estimate_pose_service")
         print("[PoseEstClient]: Initialized")
 
         color_topic = rospy.get_param("ros/color_image_topic")
