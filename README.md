@@ -121,6 +121,7 @@ Possible configurations:
 * When testing on real robot: replace `/camera` in all relevant `ros: ...` yaml-parameters, e.g `/camera/color/camera_info`
 
 ## Launch
+### foundation_pose_ros
 There is only one relevant launch file: `only_estimate.launch`.   
 It launches:
 * the parameter files:  
@@ -135,6 +136,14 @@ Launch with:
 ```
 roslaunch foundation_pose_ros all.launch
 ```
+### spice_up_plugin
+The spice_up_plugin can be launched by:
+* Selecting the `SpiceUpPlugin` in the rqt-plugin-dropdown
+* By running:
+```
+rqt --stand-alone spice_up_plugin
+```
+
 
 
 
