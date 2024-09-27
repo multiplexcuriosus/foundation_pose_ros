@@ -7,6 +7,7 @@ This ReadMe is structured into:
 
 
 ## Overview
+![sa_slide_extraction-7](https://github.com/user-attachments/assets/c232ff90-586b-401d-b2fb-4ca687f82a6d)
 
 ## Installation
 ### foundation_pose_ros  
