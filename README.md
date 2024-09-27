@@ -1,5 +1,5 @@
-### Installation of foundation_pose_ros & spice_selection_gui on OPC  
-## foundation_pose_ros  
+## Installation of foundation_pose_ros & spice_selection_gui on OPC  
+### foundation_pose_ros  
 
 Install Foundationpose:  
 1. Install conda or mamba  
