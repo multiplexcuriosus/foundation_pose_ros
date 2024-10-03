@@ -11,8 +11,17 @@ This ReadMe is structured into:
 ## Installation
 ### foundation_pose_ros  
 
-1. Install conda or mamba  
-2. Setup the conda environment (based on instructions [here](https://github.com/leggedrobotics/foundation_pose_ros))
+1. Choose an appropriate location to store the leggedrobotics foundationpose fork, clone it and cd into it:
+```
+git clone https://github.com/leggedrobotics/FoundationPose.git`
+cd Foundationpose
+```
+2. Install requirements
+```
+python -m pip install -r requirements.txt
+```
+3. Install conda or mamba  
+4. Setup the conda environment (based on instructions [here](https://github.com/leggedrobotics/foundation_pose_ros))
 ```
 # create conda environment
 conda create -n foundationpose python=3.9 
@@ -61,16 +70,6 @@ In `/FoundationPose/foundation_pose/bundlesdf/mycuda/setup.py` edit the `include
 The `CMAKE_PREFIX_PATH=$CONDA_PREFIX/lib/python3.9/site-packages/pybind11/share/cmake/pybind11 bash build_all_conda.sh` command was succesfull if it results in 
 "Successfully installed common" being displayed in the terminal.
 
-3.  Choose an appropriate location to store the leggedrobotics foundationpose fork, clone it and cd into it:
-```
-git clone https://github.com/leggedrobotics/FoundationPose.git`
-cd Foundationpose
-```
-
-4. Install requirements
-```
-python -m pip install -r requirements.txt
-```
 5. In the Foundationpose directory, switch to the branch feature/realsense  with:
 ```
 git checkout feature/realsense
