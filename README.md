@@ -28,9 +28,6 @@ conda install nvidia/label/cuda-11.8.0::cuda-runtime -c nvidia/label/cuda-11.8.0
 conda install conda-forge::eigen=3.4.0
 export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH:/eigen/path/under/conda"
 
-# install dependencies
-python -m pip install -r requirements.txt
-
 # Install NVDiffRast
 python -m pip install --quiet --no-cache-dir git+https://github.com/NVlabs/nvdiffrast.git
 
@@ -69,7 +66,12 @@ The `CMAKE_PREFIX_PATH=$CONDA_PREFIX/lib/python3.9/site-packages/pybind11/share/
 git clone https://github.com/leggedrobotics/FoundationPose.git`
 cd Foundationpose
 ```
-4. In the Foundationpose directory, switch to the branch feature/realsense  with:
+
+4. Install requirements
+```
+python -m pip install -r requirements.txt
+```
+5. In the Foundationpose directory, switch to the branch feature/realsense  with:
 ```
 git checkout feature/realsense
 ```
