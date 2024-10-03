@@ -9,6 +9,6 @@ ros:
 pose_detector:
   seed: 0  
   refresh_rate: 20  # Hz
-  mesh_file: "/home/<username>/ros/catkin_ws/src/foundation_pose_ros/data/meshes/cube/kallax_with_backplate_meters.obj"
+  mesh_file: "/home/jau/ros/catkin_ws/src/foundation_pose_ros/data/meshes/kallax_with_backplate_meters.obj"
   estimator_refine_iters: 10
   tracker_refine_iters: 10
